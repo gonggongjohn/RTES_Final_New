@@ -7,7 +7,6 @@ SPI spi(PF_9, PF_8, PF_7);
 // Chip select pin for SPI
 DigitalOut cs(PC_1);
 
-// LCD display initialization for STM32F429ZI Discovery board
 LCD_DISCO_F429ZI lcd;
 
 // Arrays to store gyroscope data for each axis
@@ -18,33 +17,32 @@ double arr_z[40];
 // Variables to store calculated distance for each axis
 double dist_x, dist_y, dist_z;
 
-// Custom wait function to wait for a specified number of seconds
+// Wait function wrapper (second as unit)
 void wait_s(int seconds) {
     for (int i = 0; i < seconds; i++) {
-        wait_us(1000000); // wait_us is an mbed function that waits for a specified number of microseconds
+        wait_us(1000000);
     }
 }
 
 // Function to initialize the SPI interface
 void initializeSPI() {
-    cs = 1; // Deselect the SPI device by setting chip select high
-    spi.format(8, 3); // Set up SPI format: 8 bit data frames, mode 3
+    cs = 1; // Deselect the SPI device
+    spi.format(8, 3); // Set up SPI format
     spi.frequency(1000000); // 1 MHz SPI clock frequency
 }
 
-// Function to read data from a specific gyroscope register
+// Read data from a given gyroscope register
 int16_t readGyroRegister(uint8_t reg) {
-    cs = 0; // Select the device by setting chip select low
-    spi.write(0x80 | reg); // Write register address with read command
-    int16_t value = spi.write(0x00); // Perform dummy write to read value
+    cs = 0; // Select the device
+    spi.write(0x80 | reg); // SPI Read
+    int16_t value = spi.write(0x00); //Dummy write to read value
     cs = 1; // Deselect the device
     return value;
 }
 
-// Function to read gyroscope data for a number of samples
+// Read gyroscope data
 void readGyroData(int samples) {
     for (int i = 0; i < samples; i++) {
-        // Enable gyroscope and set control register
         cs = 0;
         spi.write(0x20); // Write to control register address
         spi.write(0x0F); // Set control register value for enabling axes
@@ -58,10 +56,19 @@ void readGyroData(int samples) {
         int16_t zl = readGyroRegister(0x2C); // Z-axis low byte
         int16_t zh = readGyroRegister(0x2D); // Z-axis high byte
 
-        // Combine high and low bytes and convert to actual values
-        arr_x[i] = ((xh << 8) | xl) / 32768.0 * 245;
-        arr_y[i] = ((yh << 8) | yl) / 32768.0 * 245;
-        arr_z[i] = ((zh << 8) | zl) / 32768.0 * 245;
+        // Combine high and low bytes
+        int16_t x_full = (xh << 8) | xl;
+        int16_t y_full = (yh << 8) | yl;
+        int16_t z_full = (zh << 8) | zl;
+        
+        double x_raw = (double) x_full;
+        double y_raw = (double) y_full;
+        double z_raw = (double) z_full;
+
+        // Scale raw data to -245 ~ 245
+        arr_x[i] = x_raw / (1<<15) * 245;
+        arr_y[i] = y_raw / (1<<15) * 245;
+        arr_z[i] = z_raw / (1<<15) * 245;
 
         // Print angular velocities for each sample
         printf("Sample %d: x = %lf y = %lf z = %lf\n", i, arr_x[i], arr_y[i], arr_z[i]);
@@ -70,7 +77,7 @@ void readGyroData(int samples) {
     }
 }
 
-// Function to display a countdown on the LCD before starting the measurements
+// Display a countdown on the LCD before starting the measurements
 void displayCountdown() {
     for (int countdown = 5; countdown > 0; countdown--) {
         char countdownText[20];
@@ -80,7 +87,7 @@ void displayCountdown() {
     }
 }
 
-// Function to calculate the distance moved based on gyroscope data
+// Calculate the distance moved based on gyroscope data
 void calculateDistance() {
     double avg_x = 0, avg_y = 0, avg_z = 0;
     for (int i = 0; i < 40; i++) {
@@ -89,31 +96,29 @@ void calculateDistance() {
         avg_z += arr_z[i] / 40;
     }
 
-    // Log average angular velocities
     printf("Angular X = %lf dps\n", avg_x);
     printf("Angular Y = %lf dps\n", avg_y);
     printf("Angular Z = %lf dps\n", avg_z);
 
-    // Convert angular velocity to linear velocity using a fixed radius
-    int radius = 40; // The fixed radius
+    // Convert angular velocity to linear velocity
+    int radius = 40; // Radius of leg
     double x_lin = avg_x * radius;
     double y_lin = avg_y * radius;
     double z_lin = avg_z * radius;
-    
-    // Log linear velocities
+
     printf("Linear Velocity X = %lf, Y = %lf, Z = %lf\n", x_lin, y_lin, z_lin);
 
-    // Calculate the distance moved during the measurement period
-    int dur = 20; // Duration of measurement in seconds
-    dist_x = x_lin * dur;
-    dist_y = y_lin * dur;
-    dist_z = z_lin * dur;
+    // Calculate the distance
+    int duration = 20; // Duration of measurement in seconds
+    dist_x = x_lin * duration;
+    dist_y = y_lin * duration;
+    dist_z = z_lin * duration;
 }
 
-// Function to display the results on the LCD and console
+// Display the results
 void displayResults() {
     char xdist[30], ydist[30], zdist[30];
-    // Format distance strings
+    
     sprintf(xdist, "Dist X = %.2f", dist_x);
     sprintf(ydist, "Dist Y = %.2f", dist_y);
     sprintf(zdist, "Distance Z = %.2f cm", abs(dist_z));
@@ -125,7 +130,6 @@ void displayResults() {
     printf("Distance Z = %lf cm\n", abs(dist_z));
 }
 
-// The main function where the program starts
 int main() {
     initializeSPI();
 
@@ -142,12 +146,13 @@ int main() {
 
         lcd.Clear(LCD_COLOR_WHITE);
         lcd.DisplayStringAt(0, LINE(10), (uint8_t *)"Stop now", CENTER_MODE);
-        wait_s(3); // Short pause after data collection
-        printf("DONE\n"); // Indicate end of data collection
+        wait_s(3);
+        printf("DONE\n");
 
         // Process and display the results
         calculateDistance();
         displayResults();
+        
         wait_s(10); // Wait 10 seconds before starting the next measurement cycle
     }
 }

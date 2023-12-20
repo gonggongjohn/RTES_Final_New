@@ -105,7 +105,6 @@ int main()
     lcd.Clear(LCD_COLOR_WHITE);
     lcd.DisplayStringAt(0, LINE(10), (uint8_t *)"Stop now", CENTER_MODE);
 
-
     wait_s(3);
     printf("DONE");
 
@@ -149,7 +148,7 @@ int main()
 
     sprintf((char *)xdist, "Dist X = %.2f", dist_x);
     sprintf((char *)ydist, "Dist Y = %.2f", dist_y);
-    sprintf((char *)zdist, "Distance = %.2f cm", dist_z);
+    sprintf((char *)zdist, "Distance = %.2f cm", abs(dist_z));
 
     // lcd.DisplayStringAt(0, LINE(5), (uint8_t *) xdist, CENTER_MODE);
     // lcd.DisplayStringAt(0, LINE(6), (uint8_t *) ydist, CENTER_MODE);

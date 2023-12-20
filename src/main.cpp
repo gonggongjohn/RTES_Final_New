@@ -26,15 +26,15 @@ void wait_s(int seconds)
   }
 }
 
-int16_t readGyroRegister(SPI &spi, DigitalOut &cs, uint8_t reg) {
+int16_t readGyroRegister(uint8_t reg) {
+    cs = 1;
     cs = 0;
     spi.write(0x80 | reg); // 0x80 | reg: set MSB for read operation
     int16_t value = spi.write(0x00); // Dummy write to read data
-    cs = 1;
     return value;
 }
 
-void readGyroData(SPI &spi, DigitalOut &cs, int samples) {
+void readGyroData(int samples) {
     for (int i = 0; i < samples; i++) {
         // Setup the control register to enable the gyroscope
         cs = 0;
@@ -42,17 +42,25 @@ void readGyroData(SPI &spi, DigitalOut &cs, int samples) {
         spi.write(0x0f); // Control register value (Xen, Yen, Zen)
         cs = 1;
         // Read high and low registers for each axis
-        int16_t xl = readGyroRegister(spi, cs, 0x28);
-        int16_t xh = readGyroRegister(spi, cs, 0x29);
-        int16_t yl = readGyroRegister(spi, cs, 0x2A);
-        int16_t yh = readGyroRegister(spi, cs, 0x2B);
-        int16_t zl = readGyroRegister(spi, cs, 0x2C);
-        int16_t zh = readGyroRegister(spi, cs, 0x2D);
+        int16_t xl = readGyroRegister(0x28);
+        int16_t xh = readGyroRegister(0x29);
+        int16_t yl = readGyroRegister(0x2A);
+        int16_t yh = readGyroRegister(0x2B);
+        int16_t zl = readGyroRegister(0x2C);
+        int16_t zh = readGyroRegister(0x2D);
+
+        int16_t x_full = (xh << 8) | xl;
+        int16_t y_full = (yh << 8) | yl;
+        int16_t z_full = (zh << 8) | zl;
+
+        double x_raw = (double) x_full;
+        double y_raw = (double) y_full;
+        double z_raw = (double) z_full;
 
         // Concatenate high and low values and map them
-        arr_x[i] = (((double) ((xh << 8) | xl)) / (1<<15)) * 245;
-        arr_y[i] = (((double) ((yh << 8) | yl)) / (1<<15)) * 245;
-        arr_z[i] = (((double) ((zh << 8) | zl)) / (1<<15)) * 245;
+        arr_x[i] = (x_raw / (1<<15)) * 245;
+        arr_y[i] = (y_raw / (1<<15)) * 245;
+        arr_z[i] = (z_raw / (1<<15)) * 245;
 
         // Print the angular velocity
         printf("x = %lf y = %lf z = %lf\n", arr_x[i], arr_y[i], arr_z[i]);
@@ -90,8 +98,9 @@ int main()
     lcd.Clear(LCD_COLOR_WHITE);
     lcd.DisplayStringAt(0, LINE(10), (uint8_t *)"Walk now", CENTER_MODE);
 
-    readGyroData(spi, cs, 40);
-    // loop to sample the data at the interval of 0.5 seconds
+    readGyroData(40);
+    //loop to sample the data at the interval of 0.5 seconds
+    // int i = 0;
     // while (i < 40)
     // {
     //   i++;

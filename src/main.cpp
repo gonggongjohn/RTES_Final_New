@@ -134,7 +134,6 @@ int main() {
         lcd.Clear(LCD_COLOR_WHITE);
         lcd.DisplayStringAt(0, LINE(10), (uint8_t *)"Walk now", CENTER_MODE);
 
-        // Ensure that 'spi' is an SPI object and 'cs' is a DigitalOut object
         // '40' is the number of samples you want to read
         readGyroData(40);
 
@@ -145,6 +144,7 @@ int main() {
 
         calculateDistance();
         displayResults();
+
         wait_s(10); // Wait for 10 seconds until the loop restarts
     }
 }

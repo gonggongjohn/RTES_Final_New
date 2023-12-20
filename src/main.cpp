@@ -40,14 +40,19 @@ int main()
   while (true)
   {
     // Orange screen to indicate that the loop is about to begin
-    lcd.Clear(LCD_COLOR_ORANGE);
-    lcd.DisplayStringAt(0, LINE(5), (uint8_t *)"GET READY", CENTER_MODE);
+    //lcd.Clear(LCD_COLOR_YELLOW);
+    lcd.DisplayStringAt(0, LINE(10), (uint8_t *)"Prepare to walk", CENTER_MODE);
 
-    wait_s(5);
+    for (int countdown = 5; countdown > 0; countdown--) {
+    char countdownText[20];
+    sprintf(countdownText, "Starting in %d...", countdown);
+    lcd.DisplayStringAt(0, LINE(7), (uint8_t *)countdownText, CENTER_MODE);
+    wait_s(1);
+}
 
     // Green to indicate that the loop is running
-    lcd.Clear(LCD_COLOR_GREEN);
-    lcd.DisplayStringAt(0, LINE(5), (uint8_t *)"WALK", CENTER_MODE);
+    lcd.Clear(LCD_COLOR_WHITE);
+    lcd.DisplayStringAt(0, LINE(10), (uint8_t *)"Walk now", CENTER_MODE);
 
     int i = 0;
 
@@ -143,8 +148,9 @@ int main()
     }
 
     // Display red to indicate the loop is stopped
-    lcd.Clear(LCD_COLOR_RED);
-    lcd.DisplayStringAt(0, LINE(5), (uint8_t *)"STOP", CENTER_MODE);
+    lcd.Clear(LCD_COLOR_WHITE);
+    lcd.DisplayStringAt(0, LINE(10), (uint8_t *)"Stop now", CENTER_MODE);
+
 
     wait_s(3);
     printf("DONE");
@@ -197,7 +203,7 @@ int main()
     // Display the distance in Z direction
     lcd.DisplayStringAt(0, LINE(7), (uint8_t *)zdist, CENTER_MODE);
 
-    printf("Distance is %lf\n\n\n", dist_z);
+    printf("Distance is %lf\n\n\n", abs(dist_z));
 
     // Wait for 10 seconds until the loop restarts
     wait_s(10);

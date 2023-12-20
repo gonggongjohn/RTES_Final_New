@@ -14,6 +14,8 @@ double arr_x[40];
 double arr_y[40];
 double arr_z[40];
 
+double dist_x, dist_y, dist_z;
+
 // Wait for the specified number of seconds
 void wait_s(int seconds)
 {
@@ -24,6 +26,12 @@ void wait_s(int seconds)
       wait_us(1000);
     }
   }
+}
+
+void initializeSPI() {
+    cs = 1;
+    spi.format(8, 3); // 8 bit data, high steady state clock, second edge capture
+    spi.frequency(1000000); // 1MHz clock rate
 }
 
 int16_t readGyroRegister(uint8_t reg) {
@@ -71,12 +79,6 @@ void readGyroData(int samples) {
     }
 }
 
-void initializeSPI() {
-    cs = 1;
-    spi.format(8, 3); // 8 bit data, high steady state clock, second edge capture
-    spi.frequency(1000000); // 1MHz clock rate
-}
-
 void displayCountdown() {
     for (int countdown = 5; countdown > 0; countdown--) {
         char countdownText[20];
@@ -86,32 +88,41 @@ void displayCountdown() {
     }
 }
 
-void calculateAndDisplayResults() {
+void calculateDistance() {
     double avg_x = 0, avg_y = 0, avg_z = 0;
     for (int i = 0; i < 40; i++) {
         avg_x += arr_x[i] / 40;
         avg_y += arr_y[i] / 40;
         avg_z += arr_z[i] / 40;
     }
-
-    printf("\nAngular X = %lf dps\nAngular Y = %lf dps\nAngular Z = %lf dps\n", avg_x, avg_y, avg_z);
+    printf("Angular X = %lf dps\n", avg_x);
+    printf("Angular Y = %lf dps\n", avg_y);
+    printf("Angular Z = %lf dps\n", avg_z);
 
     int radius = 40;
-    double x_lin = avg_x * radius, y_lin = avg_y * radius, z_lin = avg_z * radius;
+    double x_lin = avg_x * radius;
+    double y_lin = avg_y * radius;
+    double z_lin = avg_z * radius;
     printf("Linear Velocity is %lf\n\n\n", z_lin);
 
     int dur = 20;
-    double dist_x = x_lin * dur, dist_y = y_lin * dur, dist_z = z_lin * dur;
-
-    uint8_t xdist[30], ydist[30], zdist[30];
-    sprintf((char *)xdist, "Dist X = %.2f", dist_x);
-    sprintf((char *)ydist, "Dist Y = %.2f", dist_y);
-    sprintf((char *)zdist, "Distance = %.2f cm", abs(dist_z));
-
-    lcd.Clear(LCD_COLOR_WHITE);
-    lcd.DisplayStringAt(0, LINE(7), (uint8_t *)zdist, CENTER_MODE);
-    printf("Distance is %lf\n\n\n", abs(dist_z));
+    dist_x = x_lin * dur;
+    dist_y = y_lin * dur;
+    dist_z = z_lin * dur;
 }
+
+
+void displayResults(){
+      uint8_t xdist[30], ydist[30], zdist[30];
+      sprintf((char *)xdist, "Dist X = %.2f", dist_x);
+      sprintf((char *)ydist, "Dist Y = %.2f", dist_y);
+      sprintf((char *)zdist, "Distance = %.2f cm", abs(dist_z));
+
+      lcd.Clear(LCD_COLOR_WHITE);
+      lcd.DisplayStringAt(0, LINE(7), (uint8_t *)zdist, CENTER_MODE);
+      printf("Distance is %lf\n\n\n", abs(dist_z));
+}
+
 
 int main() {
     initializeSPI();
@@ -132,7 +143,8 @@ int main() {
         wait_s(3);
         printf("DONE");
 
-        calculateAndDisplayResults();
+        calculateDistance();
+        displayResults();
         wait_s(10); // Wait for 10 seconds until the loop restarts
     }
 }

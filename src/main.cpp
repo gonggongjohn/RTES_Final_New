@@ -1,7 +1,6 @@
 #include "mbed.h"
 #include "stm32f4xx_hal.h"
 #include "LCD_DISCO_F429ZI.h"
-#include "stm32f429i_discovery_lcd.h"
 
 //Used lecture 5 demo on SPI as the starting point
 
@@ -9,6 +8,11 @@ SPI spi(PF_9, PF_8, PF_7); // mosi, miso, sclk
 DigitalOut cs(PC_1);
 
 LCD_DISCO_F429ZI lcd; // On Display LCD is initialized
+
+//Arrays to store the raw gyroscope values of X Y and Z
+double arr_x[40];
+double arr_y[40];
+double arr_z[40];
 
 // Wait for the specified number of seconds
 void wait_s(int seconds)
@@ -22,6 +26,43 @@ void wait_s(int seconds)
   }
 }
 
+int16_t readGyroRegister(SPI &spi, DigitalOut &cs, uint8_t reg) {
+    cs = 0;
+    spi.write(0x80 | reg); // 0x80 | reg: set MSB for read operation
+    int16_t value = spi.write(0x00); // Dummy write to read data
+    cs = 1;
+    return value;
+}
+
+void readGyroData(SPI &spi, DigitalOut &cs, int samples) {
+    for (int i = 0; i < samples; i++) {
+        // Setup the control register to enable the gyroscope
+        cs = 0;
+        spi.write(0x20); // Control register address
+        spi.write(0x0f); // Control register value (Xen, Yen, Zen)
+        cs = 1;
+        // Read high and low registers for each axis
+        int16_t xl = readGyroRegister(spi, cs, 0x28);
+        int16_t xh = readGyroRegister(spi, cs, 0x29);
+        int16_t yl = readGyroRegister(spi, cs, 0x2A);
+        int16_t yh = readGyroRegister(spi, cs, 0x2B);
+        int16_t zl = readGyroRegister(spi, cs, 0x2C);
+        int16_t zh = readGyroRegister(spi, cs, 0x2D);
+
+        // Concatenate high and low values and map them
+        arr_x[i] = (((double) ((xh << 8) | xl)) / (1<<15)) * 245;
+        arr_y[i] = (((double) ((yh << 8) | yl)) / (1<<15)) * 245;
+        arr_z[i] = (((double) ((zh << 8) | zl)) / (1<<15)) * 245;
+
+        // Print the angular velocity
+        printf("x = %lf y = %lf z = %lf\n", arr_x[i], arr_y[i], arr_z[i]);
+
+        // Wait for 500 milliseconds
+        wait_us(500000);
+        printf("\n%d\n", i); //loop variable
+    }
+}
+
 int main()
 {
   // Deselect the device
@@ -31,11 +72,6 @@ int main()
   // second edge capture, with a 1MHz clock rate
   spi.format(8, 3);
   spi.frequency(1000000);
-
-  //Arrays to store the raw gyroscope values of X Y and Z
-  double arr_x[40];
-  double arr_y[40];
-  double arr_z[40];
 
   while (true)
   {
@@ -48,104 +84,96 @@ int main()
     sprintf(countdownText, "Starting in %d...", countdown);
     lcd.DisplayStringAt(0, LINE(7), (uint8_t *)countdownText, CENTER_MODE);
     wait_s(1);
-}
+  }
 
     // Green to indicate that the loop is running
     lcd.Clear(LCD_COLOR_WHITE);
     lcd.DisplayStringAt(0, LINE(10), (uint8_t *)"Walk now", CENTER_MODE);
 
-    int i = 0;
-
+    readGyroData(spi, cs, 40);
     // loop to sample the data at the interval of 0.5 seconds
-    while (i < 40)
-    {
-      i++;
+    // while (i < 40)
+    // {
+    //   i++;
 
-      // The command to setup the control register 1 to enable the gyroscope, Xen, Yen and Zen (0b00001111)
-      cs = 0;
+    //   // The command to setup the control register 1 to enable the gyroscope, Xen, Yen and Zen (0b00001111)
+    //   cs = 0;
 
-      spi.write(0x20);
-      spi.write(0x0f);
+    //   spi.write(0x20);
+    //   spi.write(0x0f);
 
-      // The command to read the control register
-      // cs = 1;
-      // cs = 0;
-      // spi.write(0xA0);
-      // int val = spi.write(0x00);
-      // printf("cntrl1 register = %d\n", val);
+    //   // Read the contents from XL register (address 0xA8)
+    //   cs = 1;
+    //   cs = 0;
+    //   spi.write(0xA8);
+    //   // Send a dummy byte to receive the contents of the xl register
+    //   // The value is in 2's complement form, so signed int is used
+    //   int16_t x_low = spi.write(0x00);
 
-      // Read the contents from XL register (address 0xA8)
-      cs = 1;
-      cs = 0;
-      spi.write(0xA8);
-      // Send a dummy byte to receive the contents of the xl register
-      // The value is in 2's complement form, so signed int is used
-      int16_t xl = spi.write(0x00);
+    //   // Read the contents from XH register (address 0xA8)
+    //   cs = 1;
+    //   cs = 0;
+    //   spi.write(0xA9);
+    //   // Send a dummy byte to receive the contents of the xh register
+    //   int16_t x_high = spi.write(0x00);
 
-      // Read the contents from XH register (address 0xA8)
-      cs = 1;
-      cs = 0;
-      spi.write(0xA9);
-      // Send a dummy byte to receive the contents of the xh register
-      int16_t xh = spi.write(0x00);
+    //   // Similarly read from YL, YH, ZL and ZH
+    //   cs = 1;
+    //   cs = 0;
+    //   spi.write(0xAA);
+    //   // Send a dummy byte to receive the contents of the yl register
+    //   int16_t y_low = spi.write(0x00);
 
-      // Similarly read from YL, YH, ZL and ZH
-      cs = 1;
-      cs = 0;
-      spi.write(0xAA);
-      // Send a dummy byte to receive the contents of the yl register
-      int16_t yl = spi.write(0x00);
+    //   cs = 1;
+    //   cs = 0;
+    //   spi.write(0xAB);
+    //   // Receive the contents of the yh register
+    //   int16_t y_high = spi.write(0x00);
 
-      cs = 1;
-      cs = 0;
-      spi.write(0xAB);
-      // Receive the contents of the yh register
-      int16_t yh = spi.write(0x00);
+    //   cs = 1;
+    //   cs = 0;
+    //   spi.write(0xAC);
+    //   // Receive the contents of the zl register
+    //   int16_t z_low = spi.write(0x00);
 
-      cs = 1;
-      cs = 0;
-      spi.write(0xAC);
-      // Receive the contents of the zl register
-      int16_t zl = spi.write(0x00);
+    //   cs = 1;
+    //   cs = 0;
+    //   spi.write(0xAD);
+    //   // Receive the contents of the zh register
+    //   int16_t z_high = spi.write(0x00);
 
-      cs = 1;
-      cs = 0;
-      spi.write(0xAD);
-      // Receive the contents of the zh register
-      int16_t zh = spi.write(0x00);
+    //   // Concatenate the high and low registers
+    //   int16_t x_full = ((x_high << 8) | x_low);
+    //   int16_t y_full = ((y_high << 8) | y_low);
+    //   int16_t z_full = ((z_high << 8) | z_low);
 
-      // Concatenate the high and low registers
-      int16_t xr = ((xh << 8) | xl);
-      int16_t yr = ((yh << 8) | yl);
-      int16_t zr = ((zh << 8) | zl);
+    //   // Cast the signed 16bit integer into double
+    //   double x_raw = (double) x_full;
+    //   double y_raw = (double) y_full;
+    //   double z_raw = (double) z_full;
 
-      // Cast the signed 16bit integer into double
-      double xraw = (double)xr;
-      double yraw = (double)yr;
-      double zraw = (double)zr;
+    //   // Map the values from (-2^15, 2^15) to (-245, 245)
+    //   double x = (x_raw / (1<<15)) * 245;
+    //   double y = (y_raw / (1<<15)) * 245;
+    //   double z = (z_raw / (1<<15)) * 245;
 
-      // Map the values from (-2^15, 2^15) to (-245, 245)
-      double x = (xraw / 32768) * 245;
-      double y = (yraw / 32768) * 245;
-      double z = (zraw / 32768) * 245;
+    //   // Store it into the array
+    //   arr_x[i] = x;
+    //   arr_y[i] = y;
+    //   arr_z[i] = z;
 
-      // Store it into the array
-      arr_x[i] = x;
-      arr_y[i] = y;
-      arr_z[i] = z;
+    //   //Print the angular velocity
+    //   printf("x = %lf\n", x);
+    //   printf("y = %lf\n", y);
+    //   printf("z  = %lf\n\n", z);
 
-      //Print the angular velocity
-      printf("x = %lf\n", x);
-      printf("y = %lf\n", y);
-      printf("z  = %lf\n\n", z);
+    //   // Deselect the device
+    //   cs = 1;
 
-      // Deselect the device
-      cs = 1;
-
-      // wait for 500milliseconds
-      wait_us(500000);
-      printf("\n%d\n", i); //loop variable
-    }
+    //   // wait for 500milliseconds
+    //   wait_us(500000);
+    //   printf("\n%d\n", i); //loop variable
+    // }
 
     // Display red to indicate the loop is stopped
     lcd.Clear(LCD_COLOR_WHITE);
